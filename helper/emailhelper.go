@@ -134,11 +134,13 @@ func VerifyCode(userid string, vcode string) (model.UserAccount, error) {
 	}
 
 	useraccount := model.UserAccountStoreDb{UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Password: reqresponseData.Password, CreateAt: time.Now(), UpdateAt: time.Now()}
-	_, err = model.MongoInstance.Mdatabase.Collection("Account").InsertOne(context.Background(), useraccount)
+	result, err := model.MongoInstance.Mdatabase.Collection("Account").InsertOne(context.Background(), useraccount)
 	if err != nil {
 		return model.UserAccount{}, err
 	}
-	account := model.UserAccount{UserId: reqresponseData.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail}
+	insertedID := result.InsertedID.(primitive.ObjectID).Hex()
+
+	account := model.UserAccount{UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail}
 	return account, nil
 }
 
@@ -243,12 +245,21 @@ func Resetverify(userid string, vcode string) (model.UserAccount, error) {
 		},
 	},
 	}
+
 	_, err = model.MongoInstance.Mdatabase.Collection("Account").UpdateOne(context.Background(), updatefilter, newData)
 	if err != nil {
 
 		return model.UserAccount{}, err
 	}
-	account := model.UserAccount{UserId: reqresponseData.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail}
+	accountFilter := bson.D{{Key: "useremail", Value: reqresponseData.UserEmail}}
+	userdata := model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), accountFilter)
+	data := &model.UserAccount{}
+	if err := userdata.Decode(data); err != nil {
+		return model.UserAccount{}, err
+
+	}
+
+	account := model.UserAccount{UserId: data.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail}
 	return account, nil
 }
 
@@ -295,5 +306,22 @@ func DeleteVcode() {
 			model.MongoInstance.Mdatabase.Collection("Verification code").DeleteOne(context.Background(), deleteFilter)
 		}
 	}
+
+}
+
+func UserExist(userid string) (model.UserAccount, error) {
+	id, err := primitive.ObjectIDFromHex(userid)
+	if err != nil {
+		return model.UserAccount{}, err
+	}
+	filter := bson.D{{Key: "_id", Value: id}}
+	response := model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filter)
+	useraccountobj := &model.UserAccount{}
+	if err := response.Decode(useraccountobj); err != nil {
+		return model.UserAccount{}, err
+	}
+	account := model.UserAccount{UserId: useraccountobj.UserId, UserName: useraccountobj.UserName, UserEmail: useraccountobj.UserEmail}
+
+	return account, nil
 
 }

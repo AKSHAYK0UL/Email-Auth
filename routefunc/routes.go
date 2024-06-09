@@ -13,6 +13,7 @@ func RouteTable() *gin.Engine {
 	route.POST("/reset", middleware.CheckEmailInDbMiddleware(), controller.ResetPasswordController)
 	route.POST("/rverify", controller.ResetverifyController)
 	route.POST("/login", middleware.CheckEmailInDbMiddleware(), controller.LoginController)
+	route.POST("/uexist", controller.UserExistController)
 	return route
 
 }

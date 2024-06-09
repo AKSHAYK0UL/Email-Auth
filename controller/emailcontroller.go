@@ -94,3 +94,23 @@ func LoginController(ctx *gin.Context) {
 	}
 
 }
+func UserExistController(ctx *gin.Context) {
+	var userexist model.UserIdtype
+	if err := ctx.ShouldBindBodyWithJSON(&userexist); err != nil {
+		ctx.String(http.StatusNotFound, "User EROROR found")
+		return
+
+	}
+	// ctx.ShouldBindBodyWithJSON(&userexist.UserId)
+	response, err := helper.UserExist(userexist.UserId)
+	if err != nil {
+		ctx.String(http.StatusNotFound, err.Error())
+		return
+
+	}
+
+	ctx.JSON(http.StatusFound, response)
+
+	//}
+
+}
