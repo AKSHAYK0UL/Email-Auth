@@ -111,6 +111,62 @@ func UserExistController(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusFound, response)
 
-	//}
+}
 
+func SaveGoogleUserController(ctx *gin.Context) {
+	var G_user model.UserAccount
+	if err := ctx.ShouldBindBodyWithJSON(&G_user); err != nil {
+		ctx.String(http.StatusNotFound, "error in binding")
+		return
+	}
+	response, err := helper.SaveGUser(G_user)
+	if err != nil {
+		ctx.String(http.StatusBadRequest, err.Error())
+		return
+
+	} else {
+		ctx.JSON(http.StatusBadRequest, response)
+		return
+	}
+}
+
+func GoogleUserExistController(ctx *gin.Context) {
+	var userexist model.GEmailUserType
+	if err := ctx.ShouldBindBodyWithJSON(&userexist); err != nil {
+		ctx.String(http.StatusNotFound, "User EROROR found")
+		return
+
+	}
+	// ctx.ShouldBindBodyWithJSON(&userexist.UserId)
+	response, err := helper.GoogleUserExist(userexist.UserEmail)
+	if err != nil {
+		ctx.String(http.StatusNotFound, err.Error())
+		return
+
+	}
+
+	ctx.JSON(http.StatusFound, response)
+
+}
+
+// session SignUp to register the use info[name,email,uid]
+func SessionSignupController(ctx *gin.Context) {
+	var requestData model.RequestModel
+	ctx.ShouldBindBodyWithJSON(&requestData)
+	domainval, err := helper.IfEmailIsAllowed(requestData.UserEmail)
+	if err != nil {
+		// ctx.JSON(http.StatusNotAcceptable, "try another email")
+		ctx.String(http.StatusNotAcceptable, "try another email")
+
+	} else {
+
+		response, err := helper.SendEmail(domainval, requestData)
+		if err != nil {
+			ctx.String(http.StatusBadRequest, err.Error())
+		} else {
+			ctx.JSON(http.StatusAccepted, response)
+
+		}
+
+	}
 }

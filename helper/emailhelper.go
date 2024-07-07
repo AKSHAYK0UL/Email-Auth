@@ -17,6 +17,7 @@ import (
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/gomail.v2"
 )
@@ -81,10 +82,12 @@ func SendEmail(domailValue string, requestData model.RequestModel) (model.SignUp
 			fmt.Println("Email Sent Successfully!")
 			requestData.SendAt = time.Now().Format("1504")
 			requestData.Vcode = htmlval.Vcode
-			hashpassword, err := bcrypt.GenerateFromPassword([]byte(requestData.Password), bcrypt.DefaultCost)
-			requestData.Password = string(hashpassword)
-			if err != nil {
-				return model.SignUpResponse{}, err
+			if requestData.Password != "" {
+				hashpassword, err := bcrypt.GenerateFromPassword([]byte(requestData.Password), bcrypt.DefaultCost)
+				requestData.Password = string(hashpassword)
+				if err != nil {
+					return model.SignUpResponse{}, err
+				}
 			}
 
 			hashVcode, err := bcrypt.GenerateFromPassword([]byte(verificationcode), bcrypt.DefaultCost)
@@ -133,14 +136,14 @@ func VerifyCode(userid string, vcode string) (model.UserAccount, error) {
 		return model.UserAccount{}, err
 	}
 
-	useraccount := model.UserAccountStoreDb{UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Password: reqresponseData.Password, CreateAt: time.Now(), UpdateAt: time.Now()}
+	useraccount := model.UserAccountStoreDb{AuthType: "Email", UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Password: reqresponseData.Password, CreateAt: time.Now(), UpdateAt: time.Now()}
 	result, err := model.MongoInstance.Mdatabase.Collection("Account").InsertOne(context.Background(), useraccount)
 	if err != nil {
 		return model.UserAccount{}, err
 	}
 	insertedID := result.InsertedID.(primitive.ObjectID).Hex()
 
-	account := model.UserAccount{UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail}
+	account := model.UserAccount{AuthType: "Email", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail}
 	return account, nil
 }
 
@@ -231,7 +234,7 @@ func Resetverify(userid string, vcode string) (model.UserAccount, error) {
 		return model.UserAccount{}, err
 	}
 
-	useraccount := model.UserAccountStoreDb{UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Password: reqresponseData.Password, UpdateAt: time.Now()}
+	useraccount := model.UserAccountStoreDb{AuthType: "Email", UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Password: reqresponseData.Password, UpdateAt: time.Now()}
 	fmt.Println("USER EMALI $$$ ", useraccount.UserEmail)
 	updatefilter := bson.D{{Key: "useremail", Value: useraccount.UserEmail}}
 	newData := bson.D{{
@@ -259,7 +262,7 @@ func Resetverify(userid string, vcode string) (model.UserAccount, error) {
 
 	}
 
-	account := model.UserAccount{UserId: data.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail}
+	account := model.UserAccount{AuthType: "Email", UserId: data.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail}
 	return account, nil
 }
 
@@ -276,7 +279,7 @@ func LoginToAccount(userEmail string, password string) (model.UserAccount, error
 	if err != nil {
 		return model.UserAccount{}, errors.New("wrong email or password")
 	}
-	account := model.UserAccount{UserId: useraccountobj.UserId, UserName: useraccountobj.UserName, UserEmail: useraccountobj.UserEmail}
+	account := model.UserAccount{AuthType: useraccountobj.AuthType, UserId: useraccountobj.UserId, UserName: useraccountobj.UserName, UserEmail: useraccountobj.UserEmail}
 
 	return account, nil
 
@@ -309,6 +312,7 @@ func DeleteVcode() {
 
 }
 
+// Find the account
 func UserExist(userid string) (model.UserAccount, error) {
 	id, err := primitive.ObjectIDFromHex(userid)
 	if err != nil {
@@ -320,8 +324,82 @@ func UserExist(userid string) (model.UserAccount, error) {
 	if err := response.Decode(useraccountobj); err != nil {
 		return model.UserAccount{}, err
 	}
-	account := model.UserAccount{UserId: useraccountobj.UserId, UserName: useraccountobj.UserName, UserEmail: useraccountobj.UserEmail}
+	account := model.UserAccount{AuthType: useraccountobj.AuthType, UserId: useraccountobj.UserId, UserName: useraccountobj.UserName, UserEmail: useraccountobj.UserEmail}
 
 	return account, nil
 
+}
+
+// Save Google user and also check If user already exist or not [email,name,id]
+func SaveGUser(Guser model.UserAccount) (model.UserAccount, error) {
+	filter := bson.D{{Key: "useremail", Value: Guser.UserEmail}, {Key: "username", Value: Guser.UserName}}
+	account := &model.UserAccount{}
+
+	result := model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filter)
+
+	// Check for errors in the FindOne operation
+	if err := result.Err(); err != nil {
+		if err == mongo.ErrNoDocuments {
+			// No document found, proceed to create a new user
+			G_account := model.UserAccountStoreDb{
+				UserName:  Guser.UserName,
+				UserEmail: Guser.UserEmail,
+				AuthType:  "Google Auth",
+				CreateAt:  time.Now(),
+				UpdateAt:  time.Now(),
+			}
+			insertedrecord, err := model.MongoInstance.Mdatabase.Collection("Account").InsertOne(context.Background(), G_account)
+			if err != nil {
+				return model.UserAccount{}, errors.New("unable to save Google user")
+			}
+			insertedid := insertedrecord.InsertedID.(primitive.ObjectID).Hex()
+			return model.UserAccount{AuthType: G_account.AuthType, UserId: insertedid, UserName: G_account.UserName, UserEmail: G_account.UserEmail}, nil
+		}
+		// Handle other errors from the FindOne operation
+		return model.UserAccount{}, errors.New("error finding the user: " + err.Error())
+	}
+
+	// Decode the found document
+	if err := result.Decode(&account); err != nil {
+		return model.UserAccount{}, errors.New("error in decoding the user")
+	}
+
+	// Return the found user
+	return model.UserAccount{}, errors.New("email already in use")
+}
+
+func GoogleUserExist(email string) (model.UserAccount, error) {
+	// Combine both filters
+	filter := bson.D{
+		{Key: "useremail", Value: email},
+		{Key: "authtype", Value: "Google Auth"},
+	}
+
+	useraccountobj := &model.UserAccount{}
+
+	// Perform the FindOne operation
+	response := model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filter)
+
+	// Check for errors in the FindOne operation
+	if err := response.Err(); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return model.UserAccount{}, errors.New("no account found with this email and authtype")
+		}
+		return model.UserAccount{}, errors.New("error finding the user: " + err.Error())
+	}
+
+	// Decode the found document
+	if err := response.Decode(useraccountobj); err != nil {
+		return model.UserAccount{}, errors.New("error decoding the user: " + err.Error())
+	}
+
+	// Return the found user
+	account := model.UserAccount{
+		AuthType:  useraccountobj.AuthType,
+		UserId:    useraccountobj.UserId,
+		UserName:  useraccountobj.UserName,
+		UserEmail: useraccountobj.UserEmail,
+	}
+
+	return account, nil
 }
