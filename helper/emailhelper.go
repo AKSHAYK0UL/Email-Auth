@@ -152,7 +152,7 @@ func VerifyCode(userid string, vcode string) (model.UserAccount, error) {
 		return model.UserAccount{}, err
 	}
 
-	useraccount := model.UserAccountStoreDb{AuthType: "Email", UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Password: reqresponseData.Password, CreateAt: time.Now(), UpdateAt: time.Now()}
+	useraccount := model.UserAccountStoreDb{AuthType: "Email", UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Password: reqresponseData.Password, CreateAt: time.Now(), UpdateAt: time.Now(), Phone: reqresponseData.Phone}
 	result, err := model.MongoInstance.Mdatabase.Collection("Account").InsertOne(context.Background(), useraccount)
 	if err != nil {
 		return model.UserAccount{}, err
