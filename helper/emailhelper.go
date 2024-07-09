@@ -44,11 +44,15 @@ func SendEmail(domailValue string, requestData model.RequestModel) (model.SignUp
 	godotenv.Load()
 	filteremail := bson.D{{Key: "useremail", Value: requestData.UserEmail}}
 	filtername := bson.D{{Key: "username", Value: requestData.UserName}}
+	filterphone_no := bson.D{{Key: "phone", Value: requestData.Phone}}
 	var emailExist bson.M
 	var nameExist bson.M
+	var phoneExist bson.M
 	model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filteremail).Decode(&emailExist)
 	model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filtername).Decode(&nameExist)
-	if emailExist == nil && nameExist == nil {
+	model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filterphone_no).Decode(&phoneExist)
+
+	if emailExist == nil && nameExist == nil && phoneExist == nil {
 
 		fromemail := os.Getenv("Email")
 		apppassword := os.Getenv("AppPassword")
@@ -111,10 +115,22 @@ func SendEmail(domailValue string, requestData model.RequestModel) (model.SignUp
 		}
 		return *requestDataForresponse, nil
 	}
-	if emailExist != nil && nameExist != nil {
+	if emailExist != nil && nameExist != nil && phoneExist == nil {
+		return model.SignUpResponse{}, errors.New("email, username and phone no. already exist")
+	} else if emailExist != nil && nameExist != nil {
 		return model.SignUpResponse{}, errors.New("email and username already exist")
+
+	} else if emailExist != nil && phoneExist != nil {
+		return model.SignUpResponse{}, errors.New("email and phone no. already exist")
+
+	} else if phoneExist != nil && nameExist != nil {
+		return model.SignUpResponse{}, errors.New("phone no. and username already exist")
+
 	} else if emailExist != nil {
 		return model.SignUpResponse{}, errors.New("email already exist")
+	} else if phoneExist != nil {
+		return model.SignUpResponse{}, errors.New("phone no. already exist")
+
 	}
 	return model.SignUpResponse{}, errors.New("username already exist")
 }
@@ -143,7 +159,7 @@ func VerifyCode(userid string, vcode string) (model.UserAccount, error) {
 	}
 	insertedID := result.InsertedID.(primitive.ObjectID).Hex()
 
-	account := model.UserAccount{AuthType: "Email", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail}
+	account := model.UserAccount{AuthType: "Email", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
 	return account, nil
 }
 
@@ -262,7 +278,7 @@ func Resetverify(userid string, vcode string) (model.UserAccount, error) {
 
 	}
 
-	account := model.UserAccount{AuthType: "Email", UserId: data.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail}
+	account := model.UserAccount{AuthType: "Email", UserId: data.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
 	return account, nil
 }
 
@@ -279,7 +295,7 @@ func LoginToAccount(userEmail string, password string) (model.UserAccount, error
 	if err != nil {
 		return model.UserAccount{}, errors.New("wrong email or password")
 	}
-	account := model.UserAccount{AuthType: useraccountobj.AuthType, UserId: useraccountobj.UserId, UserName: useraccountobj.UserName, UserEmail: useraccountobj.UserEmail}
+	account := model.UserAccount{AuthType: useraccountobj.AuthType, UserId: useraccountobj.UserId, UserName: useraccountobj.UserName, UserEmail: useraccountobj.UserEmail, Phone: useraccountobj.Phone}
 
 	return account, nil
 
@@ -324,7 +340,7 @@ func UserExist(userid string) (model.UserAccount, error) {
 	if err := response.Decode(useraccountobj); err != nil {
 		return model.UserAccount{}, err
 	}
-	account := model.UserAccount{AuthType: useraccountobj.AuthType, UserId: useraccountobj.UserId, UserName: useraccountobj.UserName, UserEmail: useraccountobj.UserEmail}
+	account := model.UserAccount{AuthType: useraccountobj.AuthType, UserId: useraccountobj.UserId, UserName: useraccountobj.UserName, UserEmail: useraccountobj.UserEmail, Phone: useraccountobj.Phone}
 
 	return account, nil
 
@@ -332,39 +348,71 @@ func UserExist(userid string) (model.UserAccount, error) {
 
 // Save Google user and also check If user already exist or not [email,name,id]
 func SaveGUser(Guser model.UserAccount) (model.UserAccount, error) {
-	filter := bson.D{{Key: "useremail", Value: Guser.UserEmail}, {Key: "username", Value: Guser.UserName}}
-	account := &model.UserAccount{}
 
-	result := model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filter)
+	// filter := bson.D{{Key: "useremail", Value: Guser.UserEmail}, {Key: "phone_no", Value: Guser.Phone}}
+	// account := &model.UserAccount{}
+	// result := model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filter)
 
 	// Check for errors in the FindOne operation
-	if err := result.Err(); err != nil {
-		if err == mongo.ErrNoDocuments {
-			// No document found, proceed to create a new user
-			G_account := model.UserAccountStoreDb{
-				UserName:  Guser.UserName,
-				UserEmail: Guser.UserEmail,
-				AuthType:  "Google Auth",
-				CreateAt:  time.Now(),
-				UpdateAt:  time.Now(),
-			}
-			insertedrecord, err := model.MongoInstance.Mdatabase.Collection("Account").InsertOne(context.Background(), G_account)
-			if err != nil {
-				return model.UserAccount{}, errors.New("unable to save Google user")
-			}
-			insertedid := insertedrecord.InsertedID.(primitive.ObjectID).Hex()
-			return model.UserAccount{AuthType: G_account.AuthType, UserId: insertedid, UserName: G_account.UserName, UserEmail: G_account.UserEmail}, nil
+	// if err := result.Err(); err != nil {
+	// 	if err == mongo.ErrNoDocuments {
+	// 		// No document found, proceed to create a new user
+	// 		G_account := model.UserAccountStoreDb{
+	// 			UserName:  Guser.UserName,
+	// 			UserEmail: Guser.UserEmail,
+	// 			AuthType:  "Google Auth",
+	// 			CreateAt:  time.Now(),
+	// 			UpdateAt:  time.Now(),
+	// 		}
+	// 		insertedrecord, err := model.MongoInstance.Mdatabase.Collection("Account").InsertOne(context.Background(), G_account)
+	// 		if err != nil {
+	// 			return model.UserAccount{}, errors.New("unable to save Google user")
+	// 		}
+	// 		insertedid := insertedrecord.InsertedID.(primitive.ObjectID).Hex()
+	// 		return model.UserAccount{AuthType: G_account.AuthType, UserId: insertedid, UserName: G_account.UserName, UserEmail: G_account.UserEmail}, nil
+	// 	}
+	// 	// Handle other errors from the FindOne operation
+	// 	return model.UserAccount{}, errors.New("error finding the user: " + err.Error())
+	// }
+
+	// // Decode the found document
+	// if err := result.Decode(&account); err != nil {
+	// 	return model.UserAccount{}, errors.New("error in decoding the user")
+	// }
+
+	filteremail := bson.D{{Key: "useremail", Value: Guser.UserEmail}}
+	filterphone_no := bson.D{{Key: "phone", Value: Guser.Phone}}
+	var emailExist bson.M
+	var phoneExist bson.M
+
+	model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filteremail).Decode(&emailExist)
+	model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filterphone_no).Decode(&phoneExist)
+	if emailExist == nil && phoneExist == nil {
+
+		G_account := model.UserAccountStoreDb{
+			UserName:  Guser.UserName,
+			UserEmail: Guser.UserEmail,
+			Phone:     Guser.Phone,
+			AuthType:  "Google Auth",
+			CreateAt:  time.Now(),
+			UpdateAt:  time.Now(),
 		}
-		// Handle other errors from the FindOne operation
-		return model.UserAccount{}, errors.New("error finding the user: " + err.Error())
+
+		insertedrecord, err := model.MongoInstance.Mdatabase.Collection("Account").InsertOne(context.Background(), G_account)
+		if err != nil {
+			return model.UserAccount{}, errors.New("unable to save Google user")
+		}
+		insertedid := insertedrecord.InsertedID.(primitive.ObjectID).Hex()
+		return model.UserAccount{AuthType: G_account.AuthType, UserId: insertedid, UserName: G_account.UserName, UserEmail: G_account.UserEmail, Phone: G_account.Phone}, nil
 	}
 
-	// Decode the found document
-	if err := result.Decode(&account); err != nil {
-		return model.UserAccount{}, errors.New("error in decoding the user")
-	}
+	if phoneExist != nil && emailExist != nil {
+		return model.UserAccount{}, errors.New("email and phone no. already in use")
 
-	// Return the found user
+	} else if phoneExist != nil {
+		return model.UserAccount{}, errors.New("phone no. already in use")
+
+	}
 	return model.UserAccount{}, errors.New("email already in use")
 }
 
@@ -399,6 +447,7 @@ func GoogleUserExist(email string) (model.UserAccount, error) {
 		UserId:    useraccountobj.UserId,
 		UserName:  useraccountobj.UserName,
 		UserEmail: useraccountobj.UserEmail,
+		Phone:     useraccountobj.Phone,
 	}
 
 	return account, nil

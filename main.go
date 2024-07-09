@@ -10,12 +10,11 @@ import (
 	"github.com/AKSHAYK0UL/Email_Auth/routefunc"
 )
 
-//	func init() {
-//		model.ConnectMongo()
-//	}
+func init() {
+	model.ConnectMongo()
+}
 func main() {
 	fmt.Println("NEW Auth Server")
-	model.ConnectMongo()
 	route := routefunc.RouteTable()
 	port := os.Getenv("PORT")
 	if port == "" {
