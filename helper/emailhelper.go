@@ -282,8 +282,148 @@ func Resetverify(userid string, vcode string) (model.UserAccount, error) {
 	return account, nil
 }
 
-//Login
+// Session verify Code
+func SecureVerifyCode(userid string, vcode string) (model.UserAccount, error) {
+	id, err := primitive.ObjectIDFromHex(userid)
+	if err != nil {
+		return model.UserAccount{}, err
+	}
+	filter := bson.D{{Key: "_id", Value: id}}
+	response := model.MongoInstance.Mdatabase.Collection("Verification code").FindOne(context.Background(), filter)
+	reqresponseData := &model.SignUpResponse{}
+	if err := response.Decode(reqresponseData); err != nil {
+		return model.UserAccount{}, err
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(reqresponseData.Vcode), []byte(vcode))
+	if err != nil {
+		return model.UserAccount{}, err
+	}
 
+	useraccount := model.UserAccountStoreDb{AuthType: "Secure ", UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, CreateAt: time.Now(), UpdateAt: time.Now(), Phone: reqresponseData.Phone}
+	result, err := model.MongoInstance.Mdatabase.Collection("Account").InsertOne(context.Background(), useraccount)
+	if err != nil {
+		return model.UserAccount{}, err
+	}
+	insertedID := result.InsertedID.(primitive.ObjectID).Hex()
+
+	account := model.UserAccount{AuthType: "Secure ", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
+	return account, nil
+}
+
+//session login
+//steps
+//1.check email and authtype
+//2.send vcode
+//3.verify and login.
+
+func SecureLoginSendEmail(domailValue string, requestData model.RequestModel) (model.SignUpResponse, error) {
+	godotenv.Load()
+
+	filter := bson.D{
+		{Key: "useremail", Value: requestData.UserEmail},
+		{Key: "username", Value: requestData.UserName},
+		{Key: "authtype", Value: "Secure "},
+	}
+	var emailExist bson.M
+
+	model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filter).Decode(&emailExist)
+
+	if emailExist != nil {
+
+		fromemail := os.Getenv("Email")
+		apppassword := os.Getenv("AppPassword")
+		host := smtphost.Getsmtphost(domailValue)
+		verificationcode := generateVcode()
+		htmlval := model.HtmlVar{UserName: requestData.UserName, Vcode: verificationcode}
+
+		t, err := template.ParseFiles("html/Mailhtml.html")
+		if err != nil {
+			return model.SignUpResponse{}, err
+		}
+
+		buff := new(bytes.Buffer)
+		if err := t.Execute(buff, htmlval); err != nil {
+
+			return model.SignUpResponse{}, err
+		}
+		m := gomail.NewMessage()
+		m.SetHeader("From", fromemail)
+		m.SetHeader("To", requestData.UserEmail)
+		m.SetHeader("Subject", "Koul Network")
+		m.SetBody("text/html", buff.String())
+
+		d := gomail.NewDialer(host, 587, fromemail, apppassword)
+		//store the response data
+		requestDataForresponse := &model.SignUpResponse{}
+		// Send the email
+		if err := d.DialAndSend(m); err != nil {
+			return model.SignUpResponse{}, err
+		} else {
+			fmt.Println("Email Sent Successfully!")
+			requestData.SendAt = time.Now().Format("1504")
+			requestData.Vcode = htmlval.Vcode
+			if requestData.Password != "" {
+				hashpassword, err := bcrypt.GenerateFromPassword([]byte(requestData.Password), bcrypt.DefaultCost)
+				requestData.Password = string(hashpassword)
+				if err != nil {
+					return model.SignUpResponse{}, err
+				}
+			}
+
+			hashVcode, err := bcrypt.GenerateFromPassword([]byte(verificationcode), bcrypt.DefaultCost)
+			requestData.Vcode = string(hashVcode)
+			if err != nil {
+				return model.SignUpResponse{}, err
+			}
+			insertedId, err := model.MongoInstance.Mdatabase.Collection("Verification code").InsertOne(context.Background(), requestData)
+			if err != nil {
+				return model.SignUpResponse{}, err
+			}
+
+			filter := bson.D{{Key: "_id", Value: insertedId.InsertedID}}
+			responsevalues := model.MongoInstance.Mdatabase.Collection("Verification code").FindOne(context.Background(), filter)
+			if err := responsevalues.Decode(requestDataForresponse); err != nil {
+				return model.SignUpResponse{}, err
+			} else {
+				requestDataForresponse.Status = "202"
+			}
+
+		}
+		return *requestDataForresponse, nil
+	}
+	if emailExist == nil {
+		return model.SignUpResponse{}, errors.New("invalid email")
+	}
+	return model.SignUpResponse{}, errors.New("username already exist")
+}
+
+// session login
+func SecureLoginVerifyCode(userid string, vcode string) (model.UserAccount, error) {
+	id, err := primitive.ObjectIDFromHex(userid)
+	if err != nil {
+		return model.UserAccount{}, err
+	}
+	filter := bson.D{{Key: "_id", Value: id}}
+	response := model.MongoInstance.Mdatabase.Collection("Verification code").FindOne(context.Background(), filter)
+	reqresponseData := &model.SignUpResponse{}
+	if err := response.Decode(reqresponseData); err != nil {
+		return model.UserAccount{}, err
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(reqresponseData.Vcode), []byte(vcode))
+	if err != nil {
+		return model.UserAccount{}, err
+	}
+	valuefilter := bson.D{{Key: "username", Value: reqresponseData.UserName}, {Key: "useremail", Value: reqresponseData.UserEmail}, {Key: "authtype", Value: "Secure "}}
+	accountvalue := model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), valuefilter)
+	valueUserAccount := &model.UserAccount{}
+	if err := accountvalue.Decode(valueUserAccount); err != nil {
+		return model.UserAccount{}, err
+	}
+	account := model.UserAccount{AuthType: valueUserAccount.AuthType, UserId: valueUserAccount.UserId, UserName: valueUserAccount.UserName, UserEmail: valueUserAccount.UserEmail, Phone: valueUserAccount.Phone}
+	return account, nil
+}
+
+// Login
 func LoginToAccount(userEmail string, password string) (model.UserAccount, error) {
 	filter := bson.D{{Key: "useremail", Value: userEmail}}
 	userData := model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filter)
@@ -348,38 +488,6 @@ func UserExist(userid string) (model.UserAccount, error) {
 
 // Save Google user and also check If user already exist or not [email,name,id]
 func SaveGUser(Guser model.UserAccount) (model.UserAccount, error) {
-
-	// filter := bson.D{{Key: "useremail", Value: Guser.UserEmail}, {Key: "phone_no", Value: Guser.Phone}}
-	// account := &model.UserAccount{}
-	// result := model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filter)
-
-	// Check for errors in the FindOne operation
-	// if err := result.Err(); err != nil {
-	// 	if err == mongo.ErrNoDocuments {
-	// 		// No document found, proceed to create a new user
-	// 		G_account := model.UserAccountStoreDb{
-	// 			UserName:  Guser.UserName,
-	// 			UserEmail: Guser.UserEmail,
-	// 			AuthType:  "Google Auth",
-	// 			CreateAt:  time.Now(),
-	// 			UpdateAt:  time.Now(),
-	// 		}
-	// 		insertedrecord, err := model.MongoInstance.Mdatabase.Collection("Account").InsertOne(context.Background(), G_account)
-	// 		if err != nil {
-	// 			return model.UserAccount{}, errors.New("unable to save Google user")
-	// 		}
-	// 		insertedid := insertedrecord.InsertedID.(primitive.ObjectID).Hex()
-	// 		return model.UserAccount{AuthType: G_account.AuthType, UserId: insertedid, UserName: G_account.UserName, UserEmail: G_account.UserEmail}, nil
-	// 	}
-	// 	// Handle other errors from the FindOne operation
-	// 	return model.UserAccount{}, errors.New("error finding the user: " + err.Error())
-	// }
-
-	// // Decode the found document
-	// if err := result.Decode(&account); err != nil {
-	// 	return model.UserAccount{}, errors.New("error in decoding the user")
-	// }
-
 	filteremail := bson.D{{Key: "useremail", Value: Guser.UserEmail}}
 	filterphone_no := bson.D{{Key: "phone", Value: Guser.Phone}}
 	var emailExist bson.M
@@ -417,7 +525,6 @@ func SaveGUser(Guser model.UserAccount) (model.UserAccount, error) {
 }
 
 func GoogleUserExist(email string) (model.UserAccount, error) {
-	// Combine both filters
 	filter := bson.D{
 		{Key: "useremail", Value: email},
 		{Key: "authtype", Value: "Google Auth"},
@@ -425,10 +532,8 @@ func GoogleUserExist(email string) (model.UserAccount, error) {
 
 	useraccountobj := &model.UserAccount{}
 
-	// Perform the FindOne operation
 	response := model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filter)
 
-	// Check for errors in the FindOne operation
 	if err := response.Err(); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return model.UserAccount{}, errors.New("no account found with this email and authtype")
@@ -436,7 +541,6 @@ func GoogleUserExist(email string) (model.UserAccount, error) {
 		return model.UserAccount{}, errors.New("error finding the user: " + err.Error())
 	}
 
-	// Decode the found document
 	if err := response.Decode(useraccountobj); err != nil {
 		return model.UserAccount{}, errors.New("error decoding the user: " + err.Error())
 	}
