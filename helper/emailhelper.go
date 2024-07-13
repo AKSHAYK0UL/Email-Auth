@@ -152,20 +152,20 @@ func VerifyCode(userid string, vcode string) (model.UserAccount, error) {
 		return model.UserAccount{}, err
 	}
 
-	useraccount := model.UserAccountStoreDb{AuthType: "Email", UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Password: reqresponseData.Password, CreateAt: time.Now(), UpdateAt: time.Now(), Phone: reqresponseData.Phone}
+	useraccount := model.UserAccountStoreDb{AuthType: "Email Auth", UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Password: reqresponseData.Password, CreateAt: time.Now(), UpdateAt: time.Now(), Phone: reqresponseData.Phone}
 	result, err := model.MongoInstance.Mdatabase.Collection("Account").InsertOne(context.Background(), useraccount)
 	if err != nil {
 		return model.UserAccount{}, err
 	}
 	insertedID := result.InsertedID.(primitive.ObjectID).Hex()
 
-	account := model.UserAccount{AuthType: "Email", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
+	account := model.UserAccount{AuthType: "Email Auth", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
 	return account, nil
 }
 
 // reset password
 func ResetpasswordSendEmail(domailValue string, requestData model.RequestModel) (model.SignUpResponse, error) {
-	filter := bson.D{{Key: "useremail", Value: requestData.UserEmail}}
+	filter := bson.D{{Key: "useremail", Value: requestData.UserEmail}, {Key: "authtype", Value: "Email Auth"}}
 
 	userExist := model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), filter)
 
@@ -250,7 +250,7 @@ func Resetverify(userid string, vcode string) (model.UserAccount, error) {
 		return model.UserAccount{}, err
 	}
 
-	useraccount := model.UserAccountStoreDb{AuthType: "Email", UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Password: reqresponseData.Password, UpdateAt: time.Now()}
+	useraccount := model.UserAccountStoreDb{AuthType: "Email Auth", UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Password: reqresponseData.Password, UpdateAt: time.Now()}
 	fmt.Println("USER EMALI $$$ ", useraccount.UserEmail)
 	updatefilter := bson.D{{Key: "useremail", Value: useraccount.UserEmail}}
 	newData := bson.D{{
@@ -278,7 +278,7 @@ func Resetverify(userid string, vcode string) (model.UserAccount, error) {
 
 	}
 
-	account := model.UserAccount{AuthType: "Email", UserId: data.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
+	account := model.UserAccount{AuthType: "Email Auth", UserId: data.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
 	return account, nil
 }
 
@@ -299,14 +299,14 @@ func SecureVerifyCode(userid string, vcode string) (model.UserAccount, error) {
 		return model.UserAccount{}, err
 	}
 
-	useraccount := model.UserAccountStoreDb{AuthType: "Secure ", UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, CreateAt: time.Now(), UpdateAt: time.Now(), Phone: reqresponseData.Phone}
+	useraccount := model.UserAccountStoreDb{AuthType: "Secure Auth", UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, CreateAt: time.Now(), UpdateAt: time.Now(), Phone: reqresponseData.Phone}
 	result, err := model.MongoInstance.Mdatabase.Collection("Account").InsertOne(context.Background(), useraccount)
 	if err != nil {
 		return model.UserAccount{}, err
 	}
 	insertedID := result.InsertedID.(primitive.ObjectID).Hex()
 
-	account := model.UserAccount{AuthType: "Secure ", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
+	account := model.UserAccount{AuthType: "Secure Auth", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
 	return account, nil
 }
 
@@ -322,7 +322,7 @@ func SecureLoginSendEmail(domailValue string, requestData model.RequestModel) (m
 	filter := bson.D{
 		{Key: "useremail", Value: requestData.UserEmail},
 		{Key: "username", Value: requestData.UserName},
-		{Key: "authtype", Value: "Secure "},
+		{Key: "authtype", Value: "Secure Auth"},
 	}
 	var emailExist bson.M
 
@@ -413,7 +413,7 @@ func SecureLoginVerifyCode(userid string, vcode string) (model.UserAccount, erro
 	if err != nil {
 		return model.UserAccount{}, err
 	}
-	valuefilter := bson.D{{Key: "username", Value: reqresponseData.UserName}, {Key: "useremail", Value: reqresponseData.UserEmail}, {Key: "authtype", Value: "Secure "}}
+	valuefilter := bson.D{{Key: "username", Value: reqresponseData.UserName}, {Key: "useremail", Value: reqresponseData.UserEmail}, {Key: "authtype", Value: "Secure Auth"}}
 	accountvalue := model.MongoInstance.Mdatabase.Collection("Account").FindOne(context.Background(), valuefilter)
 	valueUserAccount := &model.UserAccount{}
 	if err := accountvalue.Decode(valueUserAccount); err != nil {
