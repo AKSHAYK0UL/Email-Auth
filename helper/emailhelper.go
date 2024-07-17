@@ -310,12 +310,6 @@ func SecureVerifyCode(userid string, vcode string) (model.UserAccount, error) {
 	return account, nil
 }
 
-//session login
-//steps
-//1.check email and authtype
-//2.send vcode
-//3.verify and login.
-
 func SecureLoginSendEmail(domailValue string, requestData model.RequestModel) (model.SignUpResponse, error) {
 	godotenv.Load()
 
@@ -511,6 +505,7 @@ func SaveGUser(Guser model.UserAccount) (model.UserAccount, error) {
 			return model.UserAccount{}, errors.New("unable to save Google user")
 		}
 		insertedid := insertedrecord.InsertedID.(primitive.ObjectID).Hex()
+
 		return model.UserAccount{AuthType: G_account.AuthType, UserId: insertedid, UserName: G_account.UserName, UserEmail: G_account.UserEmail, Phone: G_account.Phone}, nil
 	}
 
@@ -538,11 +533,11 @@ func GoogleUserExist(email string) (model.UserAccount, error) {
 		if err == mongo.ErrNoDocuments {
 			return model.UserAccount{}, errors.New("no account found with this email and authtype")
 		}
-		return model.UserAccount{}, errors.New("error finding the user: " + err.Error())
+		return model.UserAccount{}, errors.New("error finding the user")
 	}
 
 	if err := response.Decode(useraccountobj); err != nil {
-		return model.UserAccount{}, errors.New("error decoding the user: " + err.Error())
+		return model.UserAccount{}, errors.New("error decoding the user")
 	}
 
 	// Return the found user

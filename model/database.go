@@ -26,11 +26,11 @@ func ConnectMongo() error {
 
 	ClientOption := options.Client().ApplyURI(connectionstring)
 	Client, err := mongo.Connect(context.TODO(), ClientOption)
-	db := Client.Database(dbName)
 	if err != nil {
 		return err
-
 	}
+	db := Client.Database(dbName)
+
 	MongoInstance = Mongodatabase{Mclient: Client, Mdatabase: db}
 	return nil
 }

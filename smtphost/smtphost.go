@@ -9,7 +9,7 @@ var listofdomains = [10]string{"@gmail.com", "@yahoo.com", "@outlook.com", "@aol
 var listofsmtp = map[string]string{"@gmail.com": "smtp.gmail.com", "@yahoo.com": "smtp.mail.yahoo.com", "@outlook.com": "smtp.office365.com", "@aol.com": "smtp.aol.com", "@icloud.com": "smtp.mail.me.com", "@protonmail.com": "127.0.0.1", "@zoho.com": "smtp.zoho.com", "@yandex.com": "smtp.yandex.com", "@yandex.ru": "smtp.yandex.ru", "@ya.ru": "smtp.yandex.ru"}
 
 //Take input as a Domain like gmail.com and return smtp.gmail.com
-//basic it will return the smtp host
+//it returns the smtp host
 func Checkthedomain(useremail string) string {
 	for _, domainvalue := range listofdomains {
 		if strings.Contains(useremail, domainvalue) {
