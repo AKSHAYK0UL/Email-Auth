@@ -14,7 +14,7 @@ func RouteTable() *gin.Engine {
 	route.POST("/reset", middleware.CheckEmailInDbMiddleware(), controller.ResetPasswordController)
 	route.PATCH("/rverify", controller.ResetverifyController)
 	route.POST("/login", middleware.CheckEmailInDbMiddleware(), controller.LoginController)
-	route.POST("/uexist", controller.UserExistController)
+	route.POST("/uexist", middleware.JwtMiddleware(), controller.UserExistController)
 	route.POST("/guexist", controller.GoogleUserExistController)
 	route.POST("/securesignup", controller.SecureSignupController)
 	route.POST("/secureverify", controller.SecureVerificationController)

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/AKSHAYK0UL/Email_Auth/jwtauth"
 	"github.com/AKSHAYK0UL/Email_Auth/model"
 	"github.com/AKSHAYK0UL/Email_Auth/smtphost"
 	"github.com/joho/godotenv"
@@ -159,7 +160,14 @@ func VerifyCode(userid string, vcode string) (model.UserAccount, error) {
 	}
 	insertedID := result.InsertedID.(primitive.ObjectID).Hex()
 
-	account := model.UserAccount{AuthType: "Email Auth", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
+	tempaccount := model.UserAccount{AuthType: "Email Auth", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
+	authToken, err := jwtauth.GenerateAuthToken(tempaccount)
+	if err != nil {
+		return model.UserAccount{}, err
+	}
+
+	account := model.UserAccount{AuthToken: authToken, AuthType: "Email Auth", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
+
 	return account, nil
 }
 
@@ -278,7 +286,10 @@ func Resetverify(userid string, vcode string) (model.UserAccount, error) {
 
 	}
 
-	account := model.UserAccount{AuthType: "Email Auth", UserId: data.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
+	tempaccount := model.UserAccount{AuthType: "Email Auth", UserId: data.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
+	authToken, err := jwtauth.GenerateAuthToken(tempaccount)
+	account := model.UserAccount{AuthToken: authToken, AuthType: "Email Auth", UserId: data.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
+
 	return account, nil
 }
 
@@ -305,8 +316,10 @@ func SecureVerifyCode(userid string, vcode string) (model.UserAccount, error) {
 		return model.UserAccount{}, err
 	}
 	insertedID := result.InsertedID.(primitive.ObjectID).Hex()
+	tempaccount := model.UserAccount{AuthType: "Secure Auth", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
+	authToken, err := jwtauth.GenerateAuthToken(tempaccount)
 
-	account := model.UserAccount{AuthType: "Secure Auth", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
+	account := model.UserAccount{AuthToken: authToken, AuthType: "Secure Auth", UserId: insertedID, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
 	return account, nil
 }
 
@@ -413,7 +426,10 @@ func SecureLoginVerifyCode(userid string, vcode string) (model.UserAccount, erro
 	if err := accountvalue.Decode(valueUserAccount); err != nil {
 		return model.UserAccount{}, err
 	}
-	account := model.UserAccount{AuthType: valueUserAccount.AuthType, UserId: valueUserAccount.UserId, UserName: valueUserAccount.UserName, UserEmail: valueUserAccount.UserEmail, Phone: valueUserAccount.Phone}
+	tempaccount := model.UserAccount{AuthType: valueUserAccount.AuthType, UserId: valueUserAccount.UserId, UserName: valueUserAccount.UserName, UserEmail: valueUserAccount.UserEmail, Phone: valueUserAccount.Phone}
+	authToken, err := jwtauth.GenerateAuthToken(tempaccount)
+
+	account := model.UserAccount{AuthToken: authToken, AuthType: valueUserAccount.AuthType, UserId: valueUserAccount.UserId, UserName: valueUserAccount.UserName, UserEmail: valueUserAccount.UserEmail, Phone: valueUserAccount.Phone}
 	return account, nil
 }
 
@@ -429,7 +445,9 @@ func LoginToAccount(userEmail string, password string) (model.UserAccount, error
 	if err != nil {
 		return model.UserAccount{}, errors.New("wrong email or password")
 	}
-	account := model.UserAccount{AuthType: useraccountobj.AuthType, UserId: useraccountobj.UserId, UserName: useraccountobj.UserName, UserEmail: useraccountobj.UserEmail, Phone: useraccountobj.Phone}
+	tempaccount := model.UserAccount{AuthType: useraccountobj.AuthType, UserId: useraccountobj.UserId, UserName: useraccountobj.UserName, UserEmail: useraccountobj.UserEmail, Phone: useraccountobj.Phone}
+	authToken, err := jwtauth.GenerateAuthToken(tempaccount)
+	account := model.UserAccount{AuthToken: authToken, AuthType: useraccountobj.AuthType, UserId: useraccountobj.UserId, UserName: useraccountobj.UserName, UserEmail: useraccountobj.UserEmail, Phone: useraccountobj.Phone}
 
 	return account, nil
 
@@ -506,7 +524,10 @@ func SaveGUser(Guser model.UserAccount) (model.UserAccount, error) {
 		}
 		insertedid := insertedrecord.InsertedID.(primitive.ObjectID).Hex()
 
-		return model.UserAccount{AuthType: G_account.AuthType, UserId: insertedid, UserName: G_account.UserName, UserEmail: G_account.UserEmail, Phone: G_account.Phone}, nil
+		tempaccount := model.UserAccount{AuthType: G_account.AuthType, UserId: insertedid, UserName: G_account.UserName, UserEmail: G_account.UserEmail, Phone: G_account.Phone}
+		authToken, err := jwtauth.GenerateAuthToken(tempaccount)
+		account := model.UserAccount{AuthToken: authToken, AuthType: G_account.AuthType, UserId: insertedid, UserName: G_account.UserName, UserEmail: G_account.UserEmail, Phone: G_account.Phone}
+		return account, nil
 	}
 
 	if phoneExist != nil && emailExist != nil {
@@ -541,7 +562,17 @@ func GoogleUserExist(email string) (model.UserAccount, error) {
 	}
 
 	// Return the found user
+	tempaccount := model.UserAccount{
+		AuthType:  useraccountobj.AuthType,
+		UserId:    useraccountobj.UserId,
+		UserName:  useraccountobj.UserName,
+		UserEmail: useraccountobj.UserEmail,
+		Phone:     useraccountobj.Phone,
+	}
+
+	authToken, _ := jwtauth.GenerateAuthToken(tempaccount)
 	account := model.UserAccount{
+		AuthToken: authToken,
 		AuthType:  useraccountobj.AuthType,
 		UserId:    useraccountobj.UserId,
 		UserName:  useraccountobj.UserName,
