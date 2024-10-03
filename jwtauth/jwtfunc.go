@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// JWT functions
 func GenerateAuthToken(data model.UserAccount) (string, error) {
 	godotenv.Load()
 	key := os.Getenv("SecretKey")

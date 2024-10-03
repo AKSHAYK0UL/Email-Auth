@@ -23,6 +23,8 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
+//JWT added
+
 // Check if the email entered by the user is allowed or not
 func IfEmailIsAllowed(useremail string) (string, error) {
 	if val := smtphost.Checkthedomain(useremail); val != "try another email provider" {
@@ -288,6 +290,9 @@ func Resetverify(userid string, vcode string) (model.UserAccount, error) {
 
 	tempaccount := model.UserAccount{AuthType: "Email Auth", UserId: data.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
 	authToken, err := jwtauth.GenerateAuthToken(tempaccount)
+	if err != nil {
+		return model.UserAccount{}, err
+	}
 	account := model.UserAccount{AuthToken: authToken, AuthType: "Email Auth", UserId: data.UserId, UserName: reqresponseData.UserName, UserEmail: reqresponseData.UserEmail, Phone: reqresponseData.Phone}
 
 	return account, nil

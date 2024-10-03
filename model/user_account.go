@@ -8,7 +8,7 @@ type UserAccount struct {
 	UserEmail string `json:"useremail,omitempty" bson:"useremail,omitempty"`
 	AuthType  string `json:"authtype,omitempty" bson:"authtype,omitempty"`
 	Phone     string `json:"phone,omitempty" bson:"phone,omitempty"`
-	AuthToken string `json:"authtoken,omitempty" bson:"authtoken,omitempty"`
+	AuthToken string `json:"authtoken,omitempty" bson:"authtoken,omitempty"` //JWT TOKEN
 }
 type UserAccountStoreDb struct {
 	UserId    string    `json:"userid,omitempty" bson:"_id,omitempty"`

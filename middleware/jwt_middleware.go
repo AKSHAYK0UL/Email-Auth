@@ -11,7 +11,7 @@ import (
 func JwtMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var userexist model.UserIdtype
-
+		//Get the JWT from the "Authorization" header
 		token := ctx.Request.Header.Get("Authorization")
 		if err := ctx.ShouldBindBodyWithJSON(&userexist); err != nil {
 			ctx.String(http.StatusNotFound, "User EROROR found")
